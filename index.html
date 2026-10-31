@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Poker Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b1310;--card:#121d18;--card2:#18261f;--line:#233429;--tx:#eef1ea;--mu:#8da296;--gold:#e6c98f;--win:#7fd6a8;--lose:#ff8d7c;
+--serif:'Fraunces',Georgia,serif;--sans:'Manrope',system-ui,-apple-system,sans-serif;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:radial-gradient(120% 60% at 50% -10%,#173126 0%,var(--bg) 60%) fixed var(--bg);color:var(--tx);font:600 15px/1.4 var(--sans);-webkit-tap-highlight-color:transparent}
+main{max-width:520px;margin:0 auto;padding:18px 16px 110px}
+h1{font:700 30px/1 var(--serif);margin:6px 0 4px;letter-spacing:-.02em}
+.sub{color:var(--mu);font-weight:400;margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:12px}
+.pot{background:linear-gradient(135deg,#1d3a2c,#12201a);border-color:#2f5240;display:flex;justify-content:space-between;align-items:flex-end}
+.big{font:700 38px/1 var(--serif);color:var(--gold);letter-spacing:-.02em}
+.mu{color:var(--mu);font-weight:400;font-size:13px}
+.row{display:flex;gap:8px;align-items:center}
+.grow{flex:1;min-width:0}
+label{display:block;color:var(--mu);font-weight:400;font-size:12.5px;margin-bottom:5px}
+input{width:100%;background:#0c1612;border:1px solid var(--line);border-radius:12px;color:var(--tx);font:600 16px var(--sans);padding:12px;outline:none}
+input:focus-visible,button:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+button{font:800 14px var(--sans);border:0;border-radius:12px;padding:12px 14px;cursor:pointer;background:var(--gold);color:#201a0c}
+button.g{background:var(--card2);color:var(--tx);border:1px solid var(--line)}
+button:disabled{opacity:.35;cursor:not-allowed}
+.x{background:none;color:var(--mu);padding:6px 10px;font-size:18px}
+.av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font:700 18px var(--serif);color:#0b1310;flex:none}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.chip{border:1px dashed #3b5646;border-radius:99px;padding:3px 10px;font-size:12.5px;color:var(--mu)}
+.amt{text-align:right}.amt b{font:700 20px var(--serif)}
+.sep{height:1px;background:var(--line);margin:12px 0}
+nav{position:fixed;left:0;right:0;bottom:0;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));background:rgba(11,19,16,.92);backdrop-filter:blur(14px);border-top:1px solid var(--line);display:flex;gap:8px;justify-content:center}
+nav button{flex:1;max-width:170px;background:transparent;color:var(--mu);border:1px solid transparent}
+nav button.on{background:var(--card2);color:var(--gold);border-color:#3a5646}
+.bar{display:grid;grid-template-columns:76px 1fr 78px;gap:8px;align-items:center;margin:11px 0}
+.track{position:relative;height:22px;background:#0c1612;border-radius:8px}
+.track::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:#3b5646}
+.fill{position:absolute;top:0;bottom:0;border-radius:8px}
+.nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v{text-align:right;font-weight:800}
+.win{color:var(--win)}.lose{color:var(--lose)}
+.pay{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.pay:last-child{border:0}
+.ar{flex:1;text-align:center;color:var(--mu);font-size:12px}
+.ar i{display:block;height:1px;background:linear-gradient(90deg,var(--lose),var(--win));margin:5px 0}
+.pill{font:700 17px var(--serif);color:var(--gold)}
+.st{padding:10px 12px;border-radius:12px;font-weight:600;font-size:14px}
+.ok{background:#16352a;color:var(--win)}.bad{background:#3a1f1c;color:var(--lose)}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--gold);color:#201a0c;padding:10px 16px;border-radius:99px;font-weight:800;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast.s{opacity:1}
+</style></head><body>
+<main id="v"></main>
+<nav><button id="t0" onclick="go('table')">Table</button><button id="t1" onclick="go('cash')">Cash out</button><button id="t2" onclick="go('settle')">Settle</button></nav>
+<div id="toast"></div>
+<script>
+var S={ratio:5,buyin:500,players:[],tab:'table',uid:1};
+try{var o=JSON.parse(localStorage.getItem('pokerLedger1'));if(o&&o.players)S=o}catch(e){}
+function save(){try{localStorage.setItem('pokerLedger1',JSON.stringify(S))}catch(e){}}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function tot(p){return p.buys.reduce(function(a,b){return a+b},0)}
+function inr(c){return c/S.ratio}
+function m(n){var s=Math.abs(n).toLocaleString('en-IN',{maximumFractionDigits:2});return '₹'+s}
+function sm(n){return (n>0?'+':n<0?'−':'')+m(n)}
+function n0(n){return Number(n).toLocaleString('en-IN')}
+function hue(s){var h=0;for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))%360;return h}
+function av(name){return '<div class="av" style="background:hsl('+hue(name)+' 55% 72%)">'+esc(name.charAt(0).toUpperCase())+'</div>'}
+function toast(t){var e=document.getElementById('toast');e.textContent=t;e.className='s';setTimeout(function(){e.className=''},1800)}
+function go(t){S.tab=t;render();window.scrollTo(0,0)}
+var potC=function(){return S.players.reduce(function(a,p){return a+tot(p)},0)};
+
+function viewTable(){
+  var pc=potC(),h='<h1>Poker night</h1><p class="sub">Track buy-ins as the game goes.</p>';
+  h+='<div class="card pot"><div><div class="mu">Total in play</div><div class="big">'+m(inr(pc))+'</div></div><div class="amt"><b>'+n0(pc)+'</b><div class="mu">chips</div></div></div>';
+  h+='<div class="card"><div class="row"><div class="grow"><label>Chips per ₹1 (ratio 1:'+S.ratio+')</label><input type="number" inputmode="decimal" min="0.01" step="any" value="'+S.ratio+'" onchange="S.ratio=Math.max(0.01,+this.value||1);render()"></div><div class="grow"><label>Standard buy-in (chips)</label><input type="number" inputmode="numeric" min="1" value="'+S.buyin+'" onchange="S.buyin=Math.max(1,+this.value||500);render()"></div></div>';
+  h+='<div class="mu" style="margin-top:10px">So a buy-in of '+n0(S.buyin)+' chips costs <b style="color:var(--gold)">'+m(inr(S.buyin))+'</b></div></div>';
+  h+='<div class="card"><label>Add a player</label><div class="row"><div class="grow"><input id="nn" placeholder="Name" maxlength="20" onkeydown="if(event.key===\'Enter\')addP()"></div><div style="width:92px"><input id="nb" type="number" inputmode="numeric" value="'+S.buyin+'" aria-label="Buy-in chips"></div><button onclick="addP()">Add</button></div></div>';
+  if(!S.players.length)h+='<div class="card mu" style="text-align:center;padding:26px">No players yet. Add the first name above to open the table.</div>';
+  S.players.forEach(function(p,i){
+    h+='<div class="card"><div class="row">'+av(p.name)+'<div class="grow"><div class="nm" style="font-weight:800;font-size:17px">'+esc(p.name)+'</div><div class="mu">'+p.buys.length+' buy-in'+(p.buys.length>1?'s':'')+'</div></div><div class="amt"><b>'+m(inr(tot(p)))+'</b><div class="mu">'+n0(tot(p))+' chips</div></div><button class="x" aria-label="Remove '+esc(p.name)+'" onclick="delP('+i+')">×</button></div>';
+    h+='<div class="chips">'+p.buys.map(function(b,j){return '<span class="chip" onclick="delBuy('+i+','+j+')" title="Tap to remove">'+n0(b)+'</span>'}).join('')+'</div>';
+    h+='<div class="row"><div class="grow"><input id="rb'+i+'" type="number" inputmode="numeric" value="'+S.buyin+'" aria-label="Rebuy chips"></div><button onclick="rebuy('+i+')">Add buy-in</button></div></div>';
+  });
+  if(S.players.length)h+='<div class="mu" style="text-align:center">Tap a chip amount to remove that buy-in.</div>';
+  return h}
+function addP(){var n=document.getElementById('nn').value.trim(),b=+document.getElementById('nb').value;
+  if(!n){toast('Enter a name');return}if(!(b>0)){toast('Enter buy-in chips');return}
+  S.players.push({id:S.uid++,name:n,buys:[b],final:null});render()}
+function rebuy(i){var b=+document.getElementById('rb'+i).value;if(!(b>0)){toast('Enter chips');return}S.players[i].buys.push(b);render();toast(S.players[i].name+': +'+n0(b)+' chips')}
+function delBuy(i,j){var p=S.players[i];if(p.buys.length<2){toast('Remove the player instead');return}p.buys.splice(j,1);render()}
+function delP(i){if(confirm('Remove '+S.players[i].name+'?')){S.players.splice(i,1);render()}}
+
+function cashState(){var pc=potC(),f=0,all=true;S.players.forEach(function(p){if(p.final===null||isNaN(p.final))all=false;else f+=p.final});
+  return{pc:pc,f:f,diff:f-pc,all:all&&S.players.length>0}}
+function viewCash(){
+  var h='<h1>Cash out</h1><p class="sub">Enter each player’s ending chips.</p>';
+  if(!S.players.length)return h+'<div class="card mu">Add players on the Table tab first.</div>';
+  S.players.forEach(function(p,i){
+    h+='<div class="card row">'+av(p.name)+'<div class="grow"><div class="nm" style="font-weight:800">'+esc(p.name)+'</div><div class="mu">Bought '+n0(tot(p))+' chips</div></div><div style="width:120px"><input type="number" inputmode="numeric" min="0" placeholder="Chips" value="'+(p.final===null?'':p.final)+'" oninput="S.players['+i+'].final=this.value===\'\'?null:+this.value;save();cashSum()" aria-label="Ending chips for '+esc(p.name)+'"></div></div>'});
+  h+='<div id="cs"></div>';return h}
+function cashSum(){var c=cashState(),e=document.getElementById('cs');if(!e)return;
+  var msg,cls;
+  if(!c.all){msg='Waiting for every stack. Counted '+n0(c.f)+' of '+n0(c.pc)+' chips.';cls='st'}
+  else if(c.diff===0){msg='Stacks match the table: '+n0(c.pc)+' chips.';cls='st ok'}
+  else{msg=(c.diff>0?'Stacks are '+n0(c.diff)+' chips over':'Stacks are '+n0(-c.diff)+' chips short')+'. Recount before settling.';cls='st bad'}
+  e.innerHTML='<div class="'+cls+'" style="margin-bottom:12px">'+msg+'</div><button style="width:100%" '+(c.all&&c.diff===0?'':'disabled')+' onclick="go(\'settle\')">See who pays whom</button>'}
+
+function nets(){return S.players.map(function(p){return{name:p.name,paise:Math.round(inr(p.final-tot(p))*100)}})}
+function transfers(ns){var cr=[],db=[],out=[];
+  ns.forEach(function(n){if(n.paise>0)cr.push({n:n.name,a:n.paise});else if(n.paise<0)db.push({n:n.name,a:-n.paise})});
+  cr.sort(function(a,b){return b.a-a.a});db.sort(function(a,b){return b.a-a.a});
+  var i=0,j=0;while(i<cr.length&&j<db.length){var x=Math.min(cr[i].a,db[j].a);out.push({from:db[j].n,to:cr[i].n,amt:x/100});cr[i].a-=x;db[j].a-=x;if(!cr[i].a)i++;if(!db[j].a)j++}
+  return out}
+function viewSettle(){
+  var h='<h1>Settle up</h1>',c=cashState();
+  if(!c.all||c.diff!==0)return h+'<p class="sub">Finish the cash out first.</p><div class="card mu">Every player needs an ending stack, and the total must equal the chips bought.</div><button style="width:100%" onclick="go(\'cash\')">Go to cash out</button>';
+  var ns=nets(),mx=Math.max.apply(null,ns.map(function(n){return Math.abs(n.paise)}).concat([1])),tr=transfers(ns);
+  h+='<p class="sub">Net result for the night, at 1:'+S.ratio+'.</p><div class="card">';
+  ns.slice().sort(function(a,b){return b.paise-a.paise}).forEach(function(n){
+    var w=Math.abs(n.paise)/mx*50,pos=n.paise>=0;
+    h+='<div class="bar"><div class="nm">'+esc(n.name)+'</div><div class="track"><div class="fill" style="width:'+w+'%;'+(pos?'left:50%;background:var(--win)':'right:50%;background:var(--lose)')+'"></div></div><div class="v '+(n.paise>0?'win':n.paise<0?'lose':'')+'">'+sm(n.paise/100)+'</div></div>'});
+  h+='</div><div class="card"><div style="font:700 19px var(--serif);margin-bottom:4px">Who pays whom</div>';
+  if(!tr.length)h+='<div class="mu">Everyone broke even. Nothing to pay.</div>';
+  tr.forEach(function(t){h+='<div class="pay"><div style="width:84px;font-weight:800" class="nm">'+esc(t.from)+'</div><div class="ar">pays<i></i></div><div class="pill">'+m(t.amt)+'</div><div class="ar">to<i></i></div><div style="width:84px;font-weight:800;text-align:right" class="nm">'+esc(t.to)+'</div></div>'});
+  h+='</div><div class="row"><button class="grow" onclick="shareTxt()">Share summary</button><button class="g grow" id="nw" onclick="newNight()">New night</button></div>';
+  return h}
+function shareTxt(){var ns=nets(),tr=transfers(ns),t='♠ Poker night (1:'+S.ratio+')\n\n';
+  ns.forEach(function(n){t+=n.name+': '+sm(n.paise/100)+'\n'});
+  t+='\nSettlements\n';if(!tr.length)t+='All square\n';tr.forEach(function(x){t+=x.from+' → '+x.to+': '+m(x.amt)+'\n'});
+  if(navigator.share){navigator.share({text:t}).catch(function(){})}
+  else{try{navigator.clipboard.writeText(t).then(function(){toast('Copied')},function(){toast('Copy not allowed here')})}catch(e){toast('Copy not allowed here')}}}
+var armed=false;
+function newNight(){var b=document.getElementById('nw');if(!armed){armed=true;b.textContent='Tap again to clear all';setTimeout(function(){armed=false;if(b)b.textContent='New night'},3000);return}
+  armed=false;S.players=[];S.tab='table';render()}
+
+function render(){
+  var map={table:viewTable,cash:viewCash,settle:viewSettle};
+  document.getElementById('v').innerHTML=map[S.tab]();
+  ['table','cash','settle'].forEach(function(k,i){document.getElementById('t'+i).className=S.tab===k?'on':''});
+  if(S.tab==='cash')cashSum();
+  save()}
+render();
+</script></body></html>
